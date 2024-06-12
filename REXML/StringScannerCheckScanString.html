@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 
-<title>class REXML::UndefinedNamespaceException - RDoc Documentation</title>
+<title>module REXML::StringScannerCheckScanString - RDoc Documentation</title>
 
 <script type="text/javascript">
   var rdoc_rel_prefix = "../";
@@ -21,7 +21,7 @@
 <link href="../css/rdoc.css" rel="stylesheet">
 
 
-<body id="top" role="document" class="class">
+<body id="top" role="document" class="module">
 <nav role="navigation">
   <div id="project-navigation">
     <div id="home-section" role="region" title="Quick navigation" class="nav-section">
@@ -58,12 +58,6 @@
   <div id="class-metadata">
     
     
-<div id="parent-class-section" class="nav-section">
-  <h3>Parent</h3>
-
-  <p class="link"><a href="ParseException.html">REXML::ParseException</a>
-</div>
-
     
     
     
@@ -72,16 +66,17 @@
   <h3>Methods</h3>
 
   <ul class="link-list" role="directory">
-    <li class="calls-super" ><a href="#method-c-new">::new</a>
+    <li class="calls-super" ><a href="#method-i-check">#check</a>
+    <li class="calls-super" ><a href="#method-i-scan">#scan</a>
   </ul>
 </div>
 
   </div>
 </nav>
 
-<main role="main" aria-labelledby="class-REXML::UndefinedNamespaceException">
-  <h1 id="class-REXML::UndefinedNamespaceException" class="class">
-    class REXML::UndefinedNamespaceException
+<main role="main" aria-labelledby="module-REXML::StringScannerCheckScanString">
+  <h1 id="module-REXML::StringScannerCheckScanString" class="module">
+    module REXML::StringScannerCheckScanString
   </h1>
 
   <section class="description">
@@ -94,16 +89,16 @@
 
 
 
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section">
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section">
        <header>
-         <h3>Public Class Methods</h3>
+         <h3>Public Instance Methods</h3>
        </header>
 
-      <div id="method-c-new" class="method-detail ">
+      <div id="method-i-check" class="method-detail ">
         <div class="method-header">
           <div class="method-heading">
-            <span class="method-name">new</span><span
-              class="method-args">( prefix, source, parser )</span>
+            <span class="method-name">check</span><span
+              class="method-args">(pattern)</span>
             <span class="method-click-advice">click to toggle source</span>
           </div>
         </div>
@@ -112,13 +107,42 @@
           
             <div class="method-calls-super">
               Calls superclass method
-              <a href="ParseException.html#method-c-new"><code>REXML::ParseException::new</code></a>
+              
             </div>
 
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/rexml/undefinednamespaceexception.rb, line 5</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier ruby-title">initialize</span>( <span class="ruby-identifier">prefix</span>, <span class="ruby-identifier">source</span>, <span class="ruby-identifier">parser</span> )
-  <span class="ruby-keyword">super</span>( <span class="ruby-node">&quot;Undefined prefix #{prefix} found&quot;</span> )
+          <div class="method-source-code" id="check-source">
+            <pre><span class="ruby-comment"># File lib/rexml/source.rb, line 12</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier ruby-title">check</span>(<span class="ruby-identifier">pattern</span>)
+  <span class="ruby-identifier">pattern</span> = <span class="ruby-regexp">/#{Regexp.escape(pattern)}/</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">pattern</span>.<span class="ruby-identifier">is_a?</span>(<span class="ruby-constant">String</span>)
+  <span class="ruby-keyword">super</span>(<span class="ruby-identifier">pattern</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div>
+        </div>
+
+
+      </div>
+
+      <div id="method-i-scan" class="method-detail ">
+        <div class="method-header">
+          <div class="method-heading">
+            <span class="method-name">scan</span><span
+              class="method-args">(pattern)</span>
+            <span class="method-click-advice">click to toggle source</span>
+          </div>
+        </div>
+
+        <div class="method-description">
+          
+            <div class="method-calls-super">
+              Calls superclass method
+              
+            </div>
+
+          <div class="method-source-code" id="scan-source">
+            <pre><span class="ruby-comment"># File lib/rexml/source.rb, line 17</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier ruby-title">scan</span>(<span class="ruby-identifier">pattern</span>)
+  <span class="ruby-identifier">pattern</span> = <span class="ruby-regexp">/#{Regexp.escape(pattern)}/</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">pattern</span>.<span class="ruby-identifier">is_a?</span>(<span class="ruby-constant">String</span>)
+  <span class="ruby-keyword">super</span>(<span class="ruby-identifier">pattern</span>)
 <span class="ruby-keyword">end</span></pre>
           </div>
         </div>
