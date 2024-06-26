@@ -55,6 +55,7 @@ module REXML
     attr_reader :encoding
 
     module Private
+      SCANNER_RESET_SIZE = 100000
       PRE_DEFINED_TERM_PATTERNS = {}
       pre_defined_terms = ["'", '"', "<"]
       pre_defined_terms.each do |term|
@@ -62,7 +63,6 @@ module REXML
       end
     end
     private_constant :Private
-    include Private
 
     # Constructor
     # @param arg must be a String, and should be a valid XML document
@@ -82,6 +82,12 @@ module REXML
     # The current buffer (what we're going to read next)
     def buffer
       @scanner.rest
+    end
+
+    def drop_parsed_content
+      if @scanner.pos > Private::SCANNER_RESET_SIZE
+        @scanner.string = @scanner.rest
+      end
     end
 
     def buffer_encoding=(encoding)

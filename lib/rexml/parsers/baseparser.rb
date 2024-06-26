@@ -132,13 +132,20 @@ module REXML
         GEDECL_PATTERN = "\\s+#{NAME}\\s+#{ENTITYDEF}\\s*>"
         PEDECL_PATTERN = "\\s+(%)\\s+#{NAME}\\s+#{PEDEF}\\s*>"
         ENTITYDECL_PATTERN = /(?:#{GEDECL_PATTERN})|(?:#{PEDECL_PATTERN})/um
+        CARRIAGE_RETURN_NEWLINE_PATTERN = /\r\n?/
+        CHARACTER_REFERENCES = /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/
+        DEFAULT_ENTITIES_PATTERNS = {}
+        default_entities = ['gt', 'lt', 'quot', 'apos', 'amp']
+        default_entities.each do |term|
+          DEFAULT_ENTITIES_PATTERNS[term] = /&#{term};/
+        end
       end
       private_constant :Private
-      include Private
 
       def initialize( source )
         self.stream = source
         @listeners = []
+        @prefixes = Set.new
       end
 
       def add_listener( listener )
@@ -204,6 +211,8 @@ module REXML
 
       # Returns the next event.  This is a +PullEvent+ object.
       def pull
+        @source.drop_parsed_content
+
         pull_event.tap do |event|
           @listeners.each do |listener|
             listener.receive event
@@ -216,7 +225,12 @@ module REXML
           x, @closed = @closed, nil
           return [ :end_element, x ]
         end
-        return [ :end_document ] if empty?
+        if empty?
+          if @document_status == :in_doctype
+            raise ParseException.new("Malformed DOCTYPE: unclosed", @source)
+          end
+          return [ :end_document ]
+        end
         return @stack.shift if @stack.size > 0
         #STDERR.puts @source.encoding
         #STDERR.puts "BUFFER = #{@source.buffer.inspect}"
@@ -247,7 +261,7 @@ module REXML
                 @source.position = start_position
                 raise REXML::ParseException.new(message, @source)
               end
-              @nsstack.unshift(curr_ns=Set.new)
+              @nsstack.unshift(Set.new)
               name = parse_name(base_error_message)
               if @source.match(/\s*\[/um, true)
                 id = [nil, nil, nil]
@@ -295,7 +309,7 @@ module REXML
               raise REXML::ParseException.new( "Bad ELEMENT declaration!", @source ) if md.nil?
               return [ :elementdecl, "<!ELEMENT" + md[1] ]
             elsif @source.match("ENTITY", true)
-              match = [:entitydecl, *@source.match(ENTITYDECL_PATTERN, true).captures.compact]
+              match = [:entitydecl, *@source.match(Private::ENTITYDECL_PATTERN, true).captures.compact]
               ref = false
               if match[1] == '%'
                 ref = true
@@ -321,7 +335,7 @@ module REXML
               match << '%' if ref
               return match
             elsif @source.match("ATTLIST", true)
-              md = @source.match(ATTLISTDECL_END, true)
+              md = @source.match(Private::ATTLISTDECL_END, true)
               raise REXML::ParseException.new( "Bad ATTLIST declaration!", @source ) if md.nil?
               element = md[1]
               contents = md[0]
@@ -373,6 +387,9 @@ module REXML
             @document_status = :after_doctype
             return [ :end_doctype ]
           end
+          if @document_status == :in_doctype
+            raise ParseException.new("Malformed DOCTYPE: invalid declaration", @source)
+          end
         end
         if @document_status == :after_doctype
           @source.match(/\s*/um, true)
@@ -387,7 +404,7 @@ module REXML
             if @source.match("/", true)
               @nsstack.shift
               last_tag = @tags.pop
-              md = @source.match(CLOSE_PATTERN, true)
+              md = @source.match(Private::CLOSE_PATTERN, true)
               if md and !last_tag
                 message = "Unexpected top-level end tag (got '#{md[1]}')"
                 raise REXML::ParseException.new(message, @source)
@@ -406,12 +423,11 @@ module REXML
               if md[0][0] == ?-
                 md = @source.match(/--(.*?)-->/um, true)
 
-                case md[1]
-                when /--/, /-\z/
+                if md.nil? || /--|-\z/.match?(md[1])
                   raise REXML::ParseException.new("Malformed comment", @source)
                 end
 
-                return [ :comment, md[1] ] if md
+                return [ :comment, md[1] ]
               else
                 md = @source.match(/\[CDATA\[(.*?)\]\]>/um, true)
                 return [ :cdata, md[1] ] if md
@@ -422,19 +438,19 @@ module REXML
               return process_instruction(start_position)
             else
               # Get the next tag
-              md = @source.match(TAG_PATTERN, true)
+              md = @source.match(Private::TAG_PATTERN, true)
               unless md
                 @source.position = start_position
                 raise REXML::ParseException.new("malformed XML: missing tag start", @source)
               end
               tag = md[1]
               @document_status = :in_element
-              prefixes = Set.new
-              prefixes << md[2] if md[2]
+              @prefixes.clear
+              @prefixes << md[2] if md[2]
               @nsstack.unshift(curr_ns=Set.new)
-              attributes, closed = parse_attributes(prefixes, curr_ns)
+              attributes, closed = parse_attributes(@prefixes, curr_ns)
               # Verify that all of the prefixes have been defined
-              for prefix in prefixes
+              for prefix in @prefixes
                 unless @nsstack.find{|k| k.member?(prefix)}
                   raise UndefinedNamespaceException.new(prefix,@source,self)
                 end
@@ -495,10 +511,14 @@ module REXML
 
       # Unescapes all possible entities
       def unnormalize( string, entities=nil, filter=nil )
-        rv = string.gsub( /\r\n?/, "\n" )
+        if string.include?("\r")
+          rv = string.gsub( Private::CARRIAGE_RETURN_NEWLINE_PATTERN, "\n" )
+        else
+          rv = string.dup
+        end
         matches = rv.scan( REFERENCE_RE )
         return rv if matches.size == 0
-        rv.gsub!( /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/ ) {
+        rv.gsub!( Private::CHARACTER_REFERENCES ) {
           m=$1
           m = "0#{m}" if m[0] == ?x
           [Integer(m)].pack('U*')
@@ -509,7 +529,7 @@ module REXML
             unless filter and filter.include?(entity_reference)
               entity_value = entity( entity_reference, entities )
               if entity_value
-                re = /&#{entity_reference};/
+                re = Private::DEFAULT_ENTITIES_PATTERNS[entity_reference] || /&#{entity_reference};/
                 rv.gsub!( re, entity_value )
               else
                 er = DEFAULT_ENTITIES[entity_reference]
@@ -517,7 +537,7 @@ module REXML
               end
             end
           end
-          rv.gsub!( /&amp;/, '&' )
+          rv.gsub!( Private::DEFAULT_ENTITIES_PATTERNS['amp'], '&' )
         end
         rv
       end
@@ -530,7 +550,7 @@ module REXML
       end
 
       def parse_name(base_error_message)
-        md = @source.match(NAME_PATTERN, true)
+        md = @source.match(Private::NAME_PATTERN, true)
         unless md
           if @source.match(/\s*\S/um)
             message = "#{base_error_message}: invalid name"
@@ -609,7 +629,7 @@ module REXML
       end
 
       def process_instruction(start_position)
-        match_data = @source.match(INSTRUCTION_END, true)
+        match_data = @source.match(Private::INSTRUCTION_END, true)
         unless match_data
           message = "Invalid processing instruction node"
           @source.position = start_position
