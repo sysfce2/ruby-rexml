@@ -5,11 +5,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<title>class REXML::DTD::ElementDecl - RDoc Documentation</title>
+<title>module REXML::Parsers::EnumerableTally - RDoc Documentation</title>
 
-  <meta name="keywords" content="ruby,class,REXML::DTD::ElementDecl">
+  <meta name="keywords" content="ruby,module,REXML::Parsers::EnumerableTally">
 
-    <meta name="description" content="Documentation for the REXML::DTD::ElementDecl class">
+    <meta name="description" content="Documentation for the REXML::Parsers::EnumerableTally module">
 
 
 <script type="text/javascript">
@@ -27,7 +27,7 @@
 <link href="../../css/rdoc.css" rel="stylesheet">
 
 
-<body id="top" role="document" class="class">
+<body id="top" role="document" class="module">
 <div id="navigation-toggle" role="button" tabindex="0" aria-label="Toggle sidebar" aria-expanded="true" aria-controls="navigation">
   <span aria-hidden="true">&#9776;</span>
 </div>
@@ -66,22 +66,18 @@
 
   
   
-  <div id="parent-class-section" class="nav-section">
-  <h3>Ancestors</h3>
-  <ul><li><a href="../Child.html">REXML::Child</a><ul><li>Object</li></ul></li></ul>
-</div>
+  
+  
+  
+  
 
-  
-  
-  
+
   <div class="nav-section">
-    <h3>Class Methods</h3>
+    <h3>Instance Methods</h3>
     <ul class="link-list" role="directory">
-      <li ><a href="#method-c-new">new</a></li>
+      <li ><a href="#method-i-tally">tally</a></li>
     </ul>
   </div>
-
-
 
 
 
@@ -93,7 +89,7 @@
 
 </nav>
 
-<main role="main" aria-labelledby="class-REXML::DTD::ElementDecl">
+<main role="main" aria-labelledby="module-REXML::Parsers::EnumerableTally">
   
   
     <ol role="navigation" aria-label="breadcrumb" class="breadcrumb">
@@ -106,21 +102,21 @@
       
       <li>
         
-        <a href="../../REXML/DTD.html">DTD</a><span>::</span>
+        <a href="../../REXML/Parsers.html">Parsers</a><span>::</span>
         
       </li>
       
       <li>
         
-        <span>ElementDecl</span>
+        <span>EnumerableTally</span>
         
       </li>
       
     </ol>
   
 
-  <h1 id="class-REXML::DTD::ElementDecl" class="anchor-link class">
-    class REXML::DTD::ElementDecl
+  <h1 id="module-REXML::Parsers::EnumerableTally" class="anchor-link module">
+    module REXML::Parsers::EnumerableTally
   </h1>
 
   <section class="description">
@@ -130,36 +126,20 @@
   <section id="5Buntitled-5D" class="documentation-section anchor-link">
 
 
-    <section class="constants-list">
-      <header>
-        <h3>Constants</h3>
-      </header>
-      <dl>
-        <dt id="PATTERN_RE">PATTERN_RE
-        <dd>
-          <p><a href="ElementDecl.html#PATTERN_RE"><code>PATTERN_RE</code></a> = /^s*(#{START}.*?)&gt;/um</p>
-        <dt id="START">START
-        <dd>
-          
-        <dt id="START_RE">START_RE
-        <dd>
-          
-      </dl>
-    </section>
 
 
 
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section anchor-link">
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section anchor-link">
        <header>
-         <h3>Public Class Methods</h3>
+         <h3>Public Instance Methods</h3>
        </header>
 
-      <div id="method-c-new" class="method-detail anchor-link ">
+      <div id="method-i-tally" class="method-detail anchor-link ">
         <div class="method-header">
             <div class="method-heading">
-              <a href="#method-c-new" title="Link to this method">
-                <span class="method-name">new</span>
-                <span class="method-args">(match)</span>
+              <a href="#method-i-tally" title="Link to this method">
+                <span class="method-name">tally</span>
+                <span class="method-args">()</span>
               </a>
             </div>
         </div>
@@ -171,14 +151,18 @@
           </div>
 
         <div class="method-description">
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/rexml/dtd/elementdecl.rb, line 12</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier ruby-title">initialize</span> <span class="ruby-identifier">match</span>
-  <span class="ruby-ivar">@name</span> = <span class="ruby-identifier">match</span>[<span class="ruby-value">1</span>]
-  <span class="ruby-ivar">@rest</span> = <span class="ruby-identifier">match</span>[<span class="ruby-value">2</span>]
+          <div class="method-source-code" id="tally-source">
+            <pre><span class="ruby-comment"># File lib/rexml/parsers/baseparser.rb, line 14</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier ruby-title">tally</span>
+  <span class="ruby-identifier">counts</span> = {}
+  <span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">item</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">counts</span>[<span class="ruby-identifier">item</span>] <span class="ruby-operator">||=</span> <span class="ruby-value">0</span>
+    <span class="ruby-identifier">counts</span>[<span class="ruby-identifier">item</span>] <span class="ruby-operator">+=</span> <span class="ruby-value">1</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-identifier">counts</span>
 <span class="ruby-keyword">end</span></pre>
           </div>
-          <p>s*(((([“‘]).*?<a href=”^/’“&gt;”>5)|</a>*)*?)(/)?&gt;/um, true)</p>
+          
         </div>
 
 
