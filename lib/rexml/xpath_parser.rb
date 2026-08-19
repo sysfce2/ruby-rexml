@@ -66,6 +66,7 @@ module REXML
       @attlist_mappings = nil
       @document = nil
       @element_namespaces_cache = {}
+      @node_indexes = nil
       @nest = 0
       @strict = strict
     end
@@ -151,14 +152,25 @@ module REXML
 
     def match(path_stack, node)
       @document = node.document
+      # A fresh cache per evaluation, so that a document modified between two
+      # evaluations is not ordered by stale indexes.
+      @node_indexes = {}.compare_by_identity
+      @functions.node_indexes = @node_indexes
       nodeset = [node]
       result = expr(path_stack, nodeset)
       case result
       when Array # nodeset
-        XPathParser.sort(result)
+        XPathParser.sort(result, @node_indexes)
       else
         [result]
       end
+    ensure
+      # Let go of the indexes: they are no use to the next evaluation, and the
+      # cache holds one entry per node it had to look up.  The document itself
+      # stays reachable through @document and @element_namespaces_cache, which
+      # outlive the evaluation.
+      @node_indexes = nil
+      @functions.node_indexes = nil
     end
 
     private
@@ -364,7 +376,7 @@ module REXML
       value = [] unless value.is_a?(Array)
       path_stack.unshift(:node)
       step(path_stack) do
-        [:iterate_nodesets, [XPathParser.sort(value)]]
+        [:iterate_nodesets, [XPathParser.sort(value, @node_indexes)]]
       end
     end
 
@@ -809,38 +821,41 @@ module REXML
     ATTRIBUTE_POSITION = -1
     private_constant :ATTRIBUTE_POSITION
 
-    # Reorders an array of nodes so that they are in document order
-    # It tries to do this efficiently.
+    # Reorders an array of nodes so that they are in document order.
     #
-    # FIXME: I need to get rid of this, but the issue is that most of the XPath
-    # interpreter functions as a filter, which means that we lose context going
-    # in and out of function calls.  If I knew what the index of the nodes was,
-    # I wouldn't have to do this.  Maybe add a document IDX for each node?
-    # Problems with mutable documents.  Or, rewrite everything.
-    def self.sort(array_of_nodes)
+    # Node sets are built up as unordered sets by the axis scanners, so they
+    # have to be put back into order here.  A node is keyed on the index it
+    # holds under each of its ancestors, outermost first, so that comparing
+    # two keys compares them at their first differing ancestor.
+    #
+    # +node_indexes+ caches the index of every child and attribute that had to
+    # be looked up.  Pass the same one to every sort of an evaluation: a sort
+    # can happen many times per evaluation (Functions#string sorts once per
+    # candidate node), and those sorts usually revisit the same parents.
+    # Passing nothing just means the caching lasts for this one call.
+    def self.sort(array_of_nodes, node_indexes = nil)
       return array_of_nodes if array_of_nodes.size <= 1
-
-      attribute_positions = {}.compare_by_identity
+      node_indexes ||= {}.compare_by_identity
       array_of_nodes.sort_by do |node|
         if node.node_type == :attribute
           # An attribute has no place of its own in the child tree, so its key
           # extends that of the element carrying it.
-          ancestor_indexes(node.element) <<
-            ATTRIBUTE_POSITION << attribute_position(node, attribute_positions)
+          ancestor_indexes(node.element, node_indexes) <<
+            ATTRIBUTE_POSITION << attribute_position(node, node_indexes)
         else
-          ancestor_indexes(node)
+          ancestor_indexes(node, node_indexes)
         end
       end
     end
 
     # The index the node holds under each of its ancestors, outermost first.
-    def self.ancestor_indexes(node)
+    def self.ancestor_indexes(node, node_indexes)
       indexes = []
       # Walk all the way up to the document.  Stopping at the root element
       # would leave every node outside it, and the root itself, with the same
       # empty key, and ties are then broken arbitrarily.
       while (parent = node.parent)
-        indexes << parent.index(node)
+        indexes << child_index_of(node, parent, node_indexes)
         node = parent
       end
       indexes.reverse!
@@ -851,21 +866,38 @@ module REXML
     # leaves the relative order of those implementation dependent, but document
     # order is a total ordering, so they do need one; this keeps them in the
     # order they were written in.
-    def self.attribute_position(attribute, positions)
-      position = positions[attribute]
+    def self.attribute_position(attribute, node_indexes)
+      position = node_indexes[attribute]
       return position if position
 
-      # Index the whole attribute list at once.  A node set often holds every
-      # attribute of an element, and looking each one up on its own would make
-      # sorting quadratic in the number of attributes.
+      # Index the whole attribute list at once, for the same reason the child
+      # list is indexed at once: a node set often holds every attribute of an
+      # element, and looking each one up on its own is quadratic.
       i = 0
       attribute.element.attributes.each_attribute do |other|
-        positions[other] ||= i
+        node_indexes[other] ||= i
         i += 1
       end
-      positions[attribute]
+      node_indexes[attribute]
     end
     private_class_method :attribute_position
+
+    # Index the whole child list at once.  A node set normally has many nodes
+    # under the same few parents, and walking that list once per node is what
+    # made sorting quadratic in the number of children.
+    def self.child_index_of(node, parent, node_indexes)
+      index = node_indexes[node]
+      return index if index
+
+      # Iterate the parent rather than its #children, which hands out a copy.
+      # Keep the first index of a node, as Parent#index does: a child list is
+      # not supposed to hold the same node twice, but Parent lets it happen,
+      # and the rest of REXML reads such a node as being at the first of its
+      # positions.
+      parent.each_with_index {|child, i| node_indexes[child] ||= i }
+      node_indexes[node]
+    end
+    private_class_method :child_index_of
 
     # Scanner for descendant-or-self axis
     def descendant_or_self(nodeset, tester, selector)

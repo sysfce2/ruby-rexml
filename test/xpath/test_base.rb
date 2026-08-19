@@ -1625,6 +1625,37 @@ EOF
       end
     end
 
+    def test_linear_performance_sort_children_of_one_parent
+      # Ordering the children of an element must not cost more than the
+      # children themselves: one whole list is indexed per parent, not one
+      # list per node.
+      omit("This is fragile on JRuby") if RUBY_ENGINE == "jruby"
+      seq = [1000, 5000, 10000, 20000, 40000]
+      build = ->(n) {
+        Document.new("<root>#{n.times.collect { "<x/>" }.join}</root>")
+      }
+      assert_linear_performance(seq, rehearsal: 10, pre: build) do |doc|
+        XPath.match(doc, "//x")
+      end
+    end
+
+    def test_linear_performance_sort_shared_within_one_evaluation
+      # A predicate sorts once per candidate node -- string() takes the first
+      # node of its argument in document order -- and every one of those sorts
+      # walks up to the wide parent the candidates hang off.  They must share
+      # the evaluation's index cache, or that parent is indexed once per
+      # candidate.
+      omit("This is fragile on JRuby") if RUBY_ENGINE == "jruby"
+      seq = [250, 1250, 2500, 5000, 10000]
+      build = ->(n) {
+        items = n.times.collect {|i| "<item><a>v#{i}</a><a>z</a></item>" }.join
+        Document.new("<root>#{items}</root>")
+      }
+      assert_linear_performance(seq, rehearsal: 10, pre: build) do |doc|
+        XPath.match(doc, "//item[string(a) = 'v3']")
+      end
+    end
+
     def test_document_order_attribute_axis_across_elements
       # Attributes of different elements are ordered by their owning elements.
       doc = Document.new("<root><a id='1'/><a id='2'/><a id='3'/></root>")
@@ -1642,6 +1673,32 @@ EOF
       nodes = XPath.match(doc, "//a/node()")
       assert_equal(["before0", "b", "after0", "before1", "c", "after1"],
                    stringify_nodes(nodes))
+    end
+
+    def test_document_order_reflects_modification_between_matches
+      # Sorting caches the index of every child it looks up, and the cache
+      # lasts for one evaluation.  Reuse one parser, so that a cache held past
+      # an evaluation would be seen by the next one; XPath.match builds a new
+      # parser per call and could never show a stale cache.
+      doc = Document.new("<root><x id='1'/><x id='2'/><x id='3'/></root>")
+      parser = XPathParser.new
+      assert_equal(["1", "2", "3"], parser.parse("//x/@id", doc).collect(&:value))
+
+      # Move a node rather than add or remove one: inserting or deleting shifts
+      # every following sibling alike, which leaves their order intact even
+      # when the indexes are stale.
+      moved = doc.root.children[0]
+      doc.root.delete(moved)
+      doc.root.add(moved)
+      assert_equal(["2", "3", "1"], parser.parse("//x/@id", doc).collect(&:value))
+    end
+
+    def test_document_order_in_function_argument_node_set
+      # string() takes the first node of its argument in document order, and is
+      # evaluated once per candidate node.
+      doc = Document.new("<root><item><a>first</a><a>second</a></item></root>")
+      assert_equal(["item"], XPath.match(doc, "//item[string(a) = 'first']").collect(&:name))
+      assert_equal([], XPath.match(doc, "//item[string(a) = 'second']").collect(&:name))
     end
 
     def test_unimplemented_id_should_not_contaminate_nil

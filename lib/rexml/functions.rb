@@ -14,6 +14,7 @@ module REXML
       @context = nil
       @namespace_context = {}
       @variables = {}
+      @node_indexes = nil
     end
 
     INTERNAL_METHODS = [
@@ -22,6 +23,7 @@ module REXML
       :variables,
       :variables=,
       :context=,
+      :node_indexes=,
       :target_named_node,
       :send,
       :compare_language,
@@ -41,6 +43,12 @@ module REXML
     def variables ; @variables ; end
 
     def context=(value); @context = value; end
+
+    # The evaluation's shared index cache, set by XPathParser so that sorting
+    # here does not re-index the same children for every call.  It is
+    # nil for the shared Functions instance, which is reachable without going
+    # through XPathParser; sort then caches for one call only.
+    def node_indexes=(value); @node_indexes = value; end
 
     # Returns the last node of the given list of nodes.
     def last( )
@@ -81,7 +89,7 @@ module REXML
         when nil
           @context[:node]
         when Array
-          XPathParser.sort(node_set).first
+          XPathParser.sort(node_set, @node_indexes).first
         end
       node if node.respond_to?(:namespace)
     end
@@ -138,7 +146,7 @@ module REXML
       else
         case object
         when Array
-          string(XPathParser.sort(object).first)
+          string(XPathParser.sort(object, @node_indexes).first)
         when Float
           if object.nan?
             "NaN"
